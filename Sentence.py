@@ -1,7 +1,12 @@
 #######################   SENTENCES ##########################################
 
+class _MetaNoun(type):
+    "Ignore me"
+    def __str__(self):
+        return self.__name__
 
 class Noun(object):
+    __metaclass__ = _MetaNoun
     unique = False
     always_plural = False  #e.g. "Pills"
     name = ""
@@ -18,6 +23,9 @@ class Noun(object):
         if self.always_plural and self.pronoun == "it":
             return "them"
         return self.pronoun
+
+    def __str__(self):
+        return self.get_name()
 
 def pluralise(string):
     if string[-1:] == "s":
@@ -42,6 +50,8 @@ def first_personise(string):
         return "are"
     elif string == "has":
         return "have"
+    elif string == "readies":
+        return "ready"
     elif string[-2:] == "es" and string not in ("takes", "consumes", "fires", "convulses", "dies", "struggles"):
         return string[:-2]
     elif string[-1:] == "s":
@@ -50,11 +60,23 @@ def first_personise(string):
 
 context = []
 
+class GrammarState(object):
+    possess = False
+    capitalise = False
+    put_the = False
+    pluralise = False
+    firstperson = False
+    put_a = False
+
+class HIDE_NUM(int):
+    pass
+
 def form_msg(*parts):
     global context
 
     """Form a message from a list of free form strings (if prepended with ^, the first
-    word is taken as a verb in third person), numbers, keywords (strings),  and Noun objects. Any word
+    word is taken as a verb in third person), numbers or HIDE_NUM(number) wrappers
+    (causes pluralisation of following word), keywords (strings), and Noun objects. Any word
     after a number is assumed to be a noun and subject to pluralisation.
 
     keywords are: "'s", "a", "the" (hint to produce 'the' instead of 'a' for following noun)
@@ -77,14 +99,6 @@ def form_msg(*parts):
     mentioned = set()
     ret = ""
 
-    class GrammarState(object):
-        possess = False
-        capitalise = False
-        put_the = False
-        pluralise = False
-        firstperson = False
-        put_a = False
-
     cur = GrammarState()
     cur.capitalise = True
     if len(parts) > 0 and parts[0] is False:
@@ -94,6 +108,7 @@ def form_msg(*parts):
     #for i, part in enumerate(parts):
     while i < len(parts):
         part = parts[i]
+        #print "part:", repr(part)
         nexttok = parts[i + 1] if i+1 < len(parts) else None
         next = GrammarState()
         phrase = ""
@@ -134,6 +149,8 @@ def form_msg(*parts):
             else:
                 phrase = str(part) if part != 0 else "no"
                 next.pluralise = True
+            if isinstance(part, HIDE_NUM):
+                phrase = ""
 
         elif isinstance(part, Noun):
             if part in mentioned:
@@ -180,11 +197,14 @@ def form_msg(*parts):
             phrase = "the " + phrase
         if cur.capitalise:
             phrase = phrase.capitalize()
+            if phrase == "":
+                next.capitalise = True
         if phrase.rstrip()[-1:] == ".":
             next.capitalise = True
         #Auto add space
-        if (ret[-1:].isalnum() or ret[-1:] in ".'!?") and phrase[0:1].isalnum():
+        if (ret[-1:].isalnum() or len(ret) and ret[-1:] in ".'!?") and phrase[0:1].isalnum():
             ret += " "
+        #print "phrase '%s'" % phrase
         ret += phrase
         cur = next
         i += 1
@@ -237,3 +257,5 @@ if __name__ == "__main__":
     ret = form_msg("the", item)
     ans = "The eight-sided coin"
     if ret != ans: print "Error! Got '" + ret + "'"
+
+    print "tests done."
