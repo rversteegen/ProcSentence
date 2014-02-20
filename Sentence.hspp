@@ -15,198 +15,198 @@
 #######################   SENTENCES ##########################################
 
 
-defineconstant(0, obj:name!)
-defineconstant(1, obj:pronoun!)
-defineconstant(2, obj:unique)
-defineconstant(3, obj:always_plural)  # eg Pills
-setsizeof  Noun, 4, SIZE4
+defineconstant(0, idx:name!)
+defineconstant(1, idx:pronoun!)
+#defineconstant(2, idx:unique)
+#defineconstant(3, idx:always_plural)  # eg Pills
+setsizeof  Noun, 2, NOUN
+
+# setsizeof  NounWrapper, 4, SIZE4    ## FIXME (MUST BE at least 1 larger than NOUN!)
+# #defineconstant(0, idx:type)  #duplicate
+# # The Noun data is at ptr + 1
+
 
 # A multimethod
-script, Thing_get_name, thing, begin
-    return(loadstring(thing.name!))
-end
-
-script, Thing_get_pronoun, thing, begin
-    if (thing.type == type:Noun) then (
-        return(loadstring(thing.pronoun!))
-    ) else if (thing.type == type:entity) then (
-        var(basenoun)
+script, Thing_get_noun, thing, begin
+    if (thing >= heap NOUN base && thing < heap NOUN end) then (
+        # Hack -- can't use .type memebr since Noun is inherited
+        return(loadstring(thing.name!))
+    ) else if (thing.type == type:Entity) then (
+        return(entity_get_noun(thing))
+    ) else (
+        scripterror(stringsprintf(98, $99="Unknown data type %d (ptr %d)", thing.type, thing))
     )
 end
 
+# A multimethod
 script, Thing_get_pronoun, thing, begin
-    if (thing.type == type:Noun) then (
+    if (thing >= heap NOUN base && thing < heap NOUN end) then (
+        # Hack -- can't use .type memebr since Noun is inherited
         return(loadstring(thing.pronoun!))
+    ) else if (thing.type == type:Entity) then (
+        return(entity_get_pronoun(thing))
+    ) else (
+        scripterror(stringsprintf(98, $99="Unknown data type %d (ptr %d)", thing.type, thing))
     )
 end
 
-
-
-class Noun(object):
-    unique = False
-    always_plural = False  #e.g. "Pills"
-    name = ""
-    pronoun = "it"
-    #firstperson = False
-
-    def get_name(self):
-        ret = self.name
-        if not self.unique and hasattr(self, 'modifier'):
-            ret = self.modifier + " " + ret
-        return ret
-    
-    def get_pronoun(self):
-        if self.always_plural and self.pronoun == "it":
-            return "them"
-        return self.pronoun
-
-    def __str__(self):
-        return self.get_name()
 
 script, freeNoun, noun, begin
     freestring(noun.name!)
     freestring(noun.pronoun!)
+    noun.name! := -99999
+    noun.pronoun! := -99999
     dealloc:Noun(noun)
 end
 
-def pluralise(string):
-    if string[-1:] == "s":
-        return string + "es"
-    else:
-        return string + "s"
 
-def possessivise(string):
-    "?!?"
-    if string == "you":
-        return "your"
-    elif string == "it":
-        return "its"
-    elif string[-1:] == "s":
-        return string + "'"
-    else:
-        return string + "'s"
+# Returns a new string
+script, capitalise, str, begin
+    var(ret, letter)
+    ret := NS
+    letter := asciifromstring(str, 1)
+    if (letter >= 97 && letter <= 122) then (letter -= 32)
+    ret $= str
+    replacechar(ret, 1, letter)
+    freestring(str)
+    return(ret)
+end
 
-def first_personise(string):
-    "special cases go here!"
-    if string == "is":
-        return "are"
-    elif string == "has":
-        return "have"
-    elif string == "readies":
-        return "ready"
-    elif string[-2:] == "es" and string not in ("takes", "consumes", "fires", "convulses", "dies", "struggles"):
-        return string[:-2]
-    elif string[-1:] == "s":
-        return string[:-1]
-    return string
-
-
-
-context = []
-
-class GrammarState(object):
-    possess = False
-    capitalise = False
-    put_the = False
-    pluralise = False
-    firstperson = False
-    put_a = False
-
-
-defineconstant(-100, HIDE_NUM)
-defineconstant(-101, SHOW_NUM)
-
-def form_msg(*parts):
-    global context
-
-    """Form a message from a list of free form strings (if prepended with ^, the first
-    word is taken as a verb in third person), numbers or HIDE_NUM(number) wrappers
-    (causes pluralisation of following word), keywords (strings), and Noun objects. Any word
-    after a number is assumed to be a noun and subject to pluralisation.
-
-    keywords are: "'s", "a", "the" (hint to produce 'the' instead of 'a' for following noun)
-
-    If the first argument is False, the string is not capitalised.
-
-    Examples:
-    form_msg("the", entity, "^is shot through by", bolts.count, "bolt of energy.", entity, "^is mortally wounded!")
-    -> "You are shot through by a bolt of energy. You are mortally wounded!"
-    -> "The three-armed ape is shot through by 3 bolts of energy. It is mortally wounded!"
-
-    form_msg("the", entity, "'s", weapon, "explodes as", entity, "^fires it!")
-    -> "Your rifle explodes as you fire it!"
-    -> "The chemist's Laser Lv-02 explodes as he fires it!"
-
-    form_msg("a", item)
-    -> "An eight-sided coin"
-    """
-
-
-script, test_form_msg_check_equal, str1, str2, begin
-    if (stringcompare(str1, str2) == false) then (
-        trace($1="Error! Got '"), trace(str1), trace($1="'", expected '"), trace(str2), trace($1="'")
-    )
+# Convert string to number
+script, tostring, num, begin
+    var(ret)
+    ret := NS
+    appendnumber(ret, num)
+    return(ret)
 end
 
 
+
+#defineconstant(-100, HIDE_NUM)
+#defineconstant(-101, SHOW_NUM)
+defineconstant(-100, PRONOUN)   # use pronoun rather than name
+
+# Possible todo: "a" and "an"
+
+# Arguments can be: string IDs (0-99), or pointers to something
+# that can be passed to Thing_get_pronoun/noun
+script, form_msg, parts_list, begin
+
+    subscript, appendstr, str, begin
+        trace($0="segment is")
+        trace(str)
+
+        ret $+ str
+        freestring(str)
+    end
+
+    var(i, ret, item, need_capitalise, segment, wantpronoun)
+    need_capitalise := true
+    wantpronoun := false
+    ret := NS
+    trace($0="ret is")
+    trace(ret)
+    for (i, 0, parts_list.len -- 1) do (
+        if (i > 0) then ($ret + " ")
+
+        item := parts_list[i]
+        if (item == PRONOUN) then (
+            wantpronoun := true
+            continue
+        ) else if (item < 100) then (
+            # String ID
+            segment := item
+            # The string gets freed by appendstr
+        ) else (
+            if (wantpronoun) then (
+                segment := Thing_get_pronoun(item)
+            ) else (
+                segment := Thing_get_noun(item)
+            )
+        )
+        if (need_capitalise) then (segment := capitalise(segment))
+        need_capitalise := false
+        appendstr(segment)
+        wantpronoun := false
+
+        # If string ends in '.'
+        if (asciifromstring(ret, stringlength(ret)) == 46) then (need_capitalise := true)
+    )
+    freelist(parts_list)
+    return (ret)
+end
+
+
+
+
 script, test_form_msg, begin
-    var(player, James, weapon, entity, ret, item)
-    player = alloc:Noun
-    player.name! = savestring($"you")
-    player.pronoun! = savestring($"you")
-    player.unique = True
-    #player.firstperson = True
 
-    James = alloc:Noun
-    James.name! = savestring($"James")
-    James.pronoun! = savestring($"he")
-    James.unique = True
+    subscript, form_msg_lst, arg1=NIL, arg2=NIL, arg3=NIL, arg4=NIL, arg5=NIL, arg6=NIL, arg7=NIL, begin
+      return(form_msg(lst8(arg1, arg2, arg3, arg4, arg5, arg6, arg7)))
+    end
 
-    weapon = alloc:Noun
-    weapon.name! = savestring($"rifle")
+    subscript, test_form_msg_equal, str1, str2, begin
+        if (stringcompare(str1, str2) == false) then (
+            trace($1="Error! Got '"), trace(str1), trace($1="', expected '"), trace(str2), trace($1="'")
+        )
+    end
 
-    entity = alloc:Noun
-    entity.name = $"three-armed ape"
 
-    ret = form_msg($"the", player, $"^is shot through by", 1, $"bolt of energy.", player, $"^is mortally wounded!")
-    $0="You are shot through by a bolt of energy. You are mortally wounded!"
-    test_form_msg_check_equal(ret, 0)
+    var(player, Joules, weapon, entity, ret, item)
+    player := alloc:Noun
+    player.name! := savestring($"you")
+    player.pronoun! := savestring($"you")
+    #player.unique := True
+    #player.firstperson := True
+
+    Joules := alloc:Noun
+    Joules.name! := savestring($"Joules")
+    Joules.pronoun! := savestring($"he")
+    #Joules.unique := True
+
+    weapon := alloc:Noun
+    weapon.name! := savestring($"rifle")
+
+
+    entity := alloc:Noun
+    entity.name! := savestring($"three-armed ape")
+
+
+    form_msg_lst($"You shoot the", entity, $"with a bolt of energy.", PRONOUN, entity, $"is stunned.")
+    $0="You shoot the three-armed ape with a bolt of energy. It is stunned."
+    test_form_msg_equal(ret, 0)
     freestring(ret)
 
-    ret = form_msg($"the", entity, $"^is shot through by", 3, $"bolt of energy.", entity, $"^is mortally wounded!")
-    $0="The three-armed ape is shot through by 3 bolts of energy. It is mortally wounded!"
-    test_form_msg_check_equal(ret, 0)
+    ret := form_msg_lst($"the", entity, $"is shot through by a", $"bolt of energy.", PRONOUN, entity, $"is mortally wounded!")
+    $0="The three-armed ape is shot through by a bolt of energy. It is mortally wounded!"
+    test_form_msg_equal(ret, 0)
     freestring(ret)
 
-    ret = form_msg($"the", player, $"'s", weapon, $"explodes as", player, $"^fires it!")
-    $0="Your rifle explodes as you fire it!"
-    test_form_msg_check_equal(ret, 0)
+    ret := form_msg_lst($"You drop your", weapon)
+    $0="You drop your rifle"
+    test_form_msg_equal(ret, 0)
     freestring(ret)
 
-    entity = alloc:Noun
-    entity.name = $"chemist"
-    entity.pronoun = $"he"
-    weapon.name = $"Laser Lv-02"
-    ret = form_msg($"the", entity, $"'s", weapon, $"explodes as", entity, $"^fires it!")
-    $0="The chemist's Laser Lv-02 explodes as he fires it!"
-    test_form_msg_check_equal(ret, 0)
+    ret := form_msg_lst(Joules, $"explodes as", PRONOUN, Joules, $"enters the chamber!")
+    $0="Joules explodes as he enters the chamber!"
+    test_form_msg_equal(ret, 0)
     freestring(ret)
 
-    item = alloc:Noun
-    item.name = $"eight-sided coin"
+    item := alloc:Noun
+    item.name! := savestring($"eight-sided coin")
 
-    ret = form_msg($"a", item)
-    $0="An eight-sided coin"
-    test_form_msg_check_equal(ret, 0)
+    ret := form_msg_lst($"a", item)
+    $0="A eight-sided coin"   #### fixme
+    test_form_msg_equal(ret, 0)
     freestring(ret)
 
-    ret = form_msg($"the", item)
+    ret := form_msg_lst($"the", item)
     $0="The eight-sided coin"
-    test_form_msg_check_equal(ret, 0)
+    test_form_msg_equal(ret, 0)
     freestring(ret)
 
     freeNoun(player)
-    freeNoun(James)
+    freeNoun(Joules)
     freeNoun(weapon)
     freeNoun(item)
     freeNoun(entity)
