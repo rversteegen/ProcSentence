@@ -33,6 +33,8 @@ script, Thing_get_noun, thing, begin
         return(loadstring(thing.name!))
     ) else if (thing.type == type:Entity) then (
         return(entity_get_noun(thing))
+#    ) else if (thing.type == type:Item) then (
+#        return(item_get_name(thing))
     ) else (
         scripterror(stringsprintf(98, $99="Unknown data type %d (ptr %d)", thing.type, thing))
     )
@@ -81,21 +83,21 @@ script, tostring, num, begin
 end
 
 
-
 #defineconstant(-100, HIDE_NUM)
 #defineconstant(-101, SHOW_NUM)
-defineconstant(-100, PRONOUN)   # use pronoun rather than name
+defineconstant(-789000000, PRONOUN)   # use pronoun rather than name
 
 # Possible todo: "a" and "an"
 
-# Arguments can be: string IDs (0-99), or pointers to something
+# Arguments can be: string IDs (0-99), or pointers to something (but NOT slicestrings)
 # that can be passed to Thing_get_pronoun/noun
 script, form_msg, parts_list, begin
 
     subscript, appendstr, str, begin
-        trace($0="segment is")
-        trace(str)
+        #trace($0="segment is")
+        #trace(str)
 
+        if (stringlength(ret) > 0) then ($ret + " ")
         ret $+ str
         freestring(str)
     end
@@ -104,12 +106,10 @@ script, form_msg, parts_list, begin
     need_capitalise := true
     wantpronoun := false
     ret := NS
-    trace($0="ret is")
-    trace(ret)
-    for (i, 0, parts_list.len -- 1) do (
-        if (i > 0) then ($ret + " ")
 
+    for (i, 0, parts_list.len -- 1) do (
         item := parts_list[i]
+        # Can't have 
         if (item == PRONOUN) then (
             wantpronoun := true
             continue
@@ -141,6 +141,11 @@ end
 
 script, test_form_msg, begin
 
+    var(slicestrings, nstrings, wasstack)
+    slicestrings := childcount(slicestring_parent)
+    nstrings := numusedstrings
+    wasstack := stack
+
     subscript, form_msg_lst, arg1=NIL, arg2=NIL, arg3=NIL, arg4=NIL, arg5=NIL, arg6=NIL, arg7=NIL, begin
       return(form_msg(lst8(arg1, arg2, arg3, arg4, arg5, arg6, arg7)))
     end
@@ -152,12 +157,12 @@ script, test_form_msg, begin
     end
 
 
-    var(player, Joules, weapon, entity, ret, item)
-    player := alloc:Noun
-    player.name! := savestring($"you")
-    player.pronoun! := savestring($"you")
-    #player.unique := True
-    #player.firstperson := True
+    var(oneself, Joules, weapon, entity, ret, item)
+    oneself := alloc:Noun
+    oneself.name! := savestring($"you")
+    oneself.pronoun! := savestring($"you")
+    #oneself.unique := True
+    #oneself.firstperson := True
 
     Joules := alloc:Noun
     Joules.name! := savestring($"Joules")
@@ -166,24 +171,26 @@ script, test_form_msg, begin
 
     weapon := alloc:Noun
     weapon.name! := savestring($"rifle")
-
+    weapon.pronoun! := savestring($"it")
 
     entity := alloc:Noun
     entity.name! := savestring($"three-armed ape")
+    entity.pronoun! := savestring($"it")
 
 
-    form_msg_lst($"You shoot the", entity, $"with a bolt of energy.", PRONOUN, entity, $"is stunned.")
+    ret := form_msg_lst($"You drop your", weapon)
+    $0="You drop your rifle"
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+
+    ret := form_msg_lst($"You shoot the", entity, $"with a bolt of energy.", PRONOUN, entity, $"is stunned.")
     $0="You shoot the three-armed ape with a bolt of energy. It is stunned."
     test_form_msg_equal(ret, 0)
     freestring(ret)
 
     ret := form_msg_lst($"the", entity, $"is shot through by a", $"bolt of energy.", PRONOUN, entity, $"is mortally wounded!")
     $0="The three-armed ape is shot through by a bolt of energy. It is mortally wounded!"
-    test_form_msg_equal(ret, 0)
-    freestring(ret)
-
-    ret := form_msg_lst($"You drop your", weapon)
-    $0="You drop your rifle"
     test_form_msg_equal(ret, 0)
     freestring(ret)
 
@@ -194,6 +201,8 @@ script, test_form_msg, begin
 
     item := alloc:Noun
     item.name! := savestring($"eight-sided coin")
+    item.pronoun! := savestring($"it")
+
 
     ret := form_msg_lst($"a", item)
     $0="A eight-sided coin"   #### fixme
@@ -205,11 +214,17 @@ script, test_form_msg, begin
     test_form_msg_equal(ret, 0)
     freestring(ret)
 
-    freeNoun(player)
+    freeNoun(oneself)
     freeNoun(Joules)
     freeNoun(weapon)
     freeNoun(item)
     freeNoun(entity)
+
+
+    listusedstrings()
+    assert(nstrings == numusedstrings)
+    assert(childcount(slicestring_parent) == slicestrings)
+    assert(wasstack == stack)
 
     trace($0="form_msg tests done.")
 end
