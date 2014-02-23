@@ -32,9 +32,9 @@ script, Thing_get_noun, thing, begin
         # Hack -- can't use .type memebr since Noun is inherited
         return(loadstring(thing.name!))
     ) else if (thing.type == type:Entity) then (
-        return(entity_get_noun(thing))
-#    ) else if (thing.type == type:Item) then (
-#        return(item_get_name(thing))
+        return(entity_get_name(thing))
+    ) else if (thing.type == type:Item) then (
+        return(item_get_name(thing))
     ) else (
         scripterror(stringsprintf(98, $99="Unknown data type %d (ptr %d)", thing.type, thing))
     )
@@ -47,6 +47,8 @@ script, Thing_get_pronoun, thing, begin
         return(loadstring(thing.pronoun!))
     ) else if (thing.type == type:Entity) then (
         return(entity_get_pronoun(thing))
+    ) else if (thing.type == type:Item) then (
+        return(item_get_pronoun(thing))
     ) else (
         scripterror(stringsprintf(98, $99="Unknown data type %d (ptr %d)", thing.type, thing))
     )
@@ -97,7 +99,10 @@ script, form_msg, parts_list, begin
         #trace($0="segment is")
         #trace(str)
 
-        if (stringlength(ret) > 0) then ($ret + " ")
+        # if string doesn't start with ,
+        if (asciifromstring(str, 1) <> 44) then (
+            if (stringlength(ret) > 0) then ($ret + " ")
+        )
         ret $+ str
         freestring(str)
     end
@@ -132,6 +137,13 @@ script, form_msg, parts_list, begin
         # If string ends in '.'
         if (asciifromstring(ret, stringlength(ret)) == 46) then (need_capitalise := true)
     )
+    var(char)
+    char := asciifromstring(ret, stringlength(ret))
+    # Not . ! ?
+    if (char <> 46 && char <> 63 && char <> 33) then (
+            appendascii(ret, 46)
+    )
+
     freelist(parts_list)
     return (ret)
 end
@@ -179,7 +191,7 @@ script, test_form_msg, begin
 
 
     ret := form_msg_lst($"You drop your", weapon)
-    $0="You drop your rifle"
+    $0="You drop your rifle."
     test_form_msg_equal(ret, 0)
     freestring(ret)
 
@@ -205,12 +217,12 @@ script, test_form_msg, begin
 
 
     ret := form_msg_lst($"a", item)
-    $0="A eight-sided coin"   #### fixme
+    $0="A eight-sided coin."   #### fixme
     test_form_msg_equal(ret, 0)
     freestring(ret)
 
-    ret := form_msg_lst($"the", item)
-    $0="The eight-sided coin"
+    ret := form_msg_lst($"the", item, $", a nice find")
+    $0="The eight-sided coin, a nice find."
     test_form_msg_equal(ret, 0)
     freestring(ret)
 
