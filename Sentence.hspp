@@ -1,23 +1,11 @@
-# Ported from GAD'42
-
-
-# Changes:
-# -instead of a HIDE_NUM class, HIDE_NUM and SHOW_NUM are special args that must
-#  process a number in form_msg string
-# -string members renamed to follow name! convention
-
-# Because other classes can't inherit from Noun, instead
-# an object has a nounbase ptr, and a name! member.
-# When creating an object like an item or entity
-
-# When creating a temp Noun
 
 #######################   SENTENCES ##########################################
 
+defineconstant(555, PROPER_NOUN)
 
 defineconstant(0, idx:name!)
 defineconstant(1, idx:pronoun!)
-defineconstant(2, idx:unique)
+defineconstant(2, idx:unique)   # true, false, or PROPER_NOUN
 #defineconstant(3, idx:always_plural)  # eg Pills
 setsizeof  Noun, 4, NOUN
 
@@ -55,6 +43,7 @@ script, Thing_get_pronoun, thing, begin
 end
 
 # A multimethod
+# Returns true, false, or PROPER_NOUN
 script, Thing_get_unique, thing, begin
     if (thing >= heap NOUN base && thing < heap NOUN end) then (
         # Hack -- can't use .type memebr since Noun is inherited
@@ -127,9 +116,16 @@ script, tostring, num, begin
     return(ret)
 end
 
+# For whether to append '.'
 script, ispunctuation, char, begin
-    # Check . ! ? ,
-    return (char == 46 || char == 63 || char == 33 || char == 44)
+    # Punctuation other than space or ), or one of : ; ?
+    return ((char < 48 && char <> 32 && char <> 41) || char == 58 || char == 59 || char == 63)
+end
+
+# For whether to prepend ' ' (KLUDGE)
+script, ispunctuation2, char, begin
+    # Check . ! ? , : ;
+    return (char == 46 || char == 63 || char == 33 || char == 44 || char == 58 || char == 59)
 end
 
 
@@ -137,7 +133,9 @@ end
 #defineconstant(-101, SHOW_NUM)
 defineconstant(-789000000, PRONOUN)   # use pronoun rather than name
 
-# Possible todo: "a" and "an"
+# Keywords:
+#  $"the" -- skipped in front of proper nouns
+#  $"a"   -- converted into "the" for unique things (unimplemented: proper nouns)
 
 # Arguments can be: string IDs (0-99), or pointers to something (but NOT slicestrings)
 # that can be passed to Thing_get_pronoun/noun
@@ -147,14 +145,22 @@ script, form_msg, parts_list, begin
         #trace($0="segment is")
         #trace(str)
 
-        if (ispunctuation(asciifromstring(str, 1)) == false) then (
+        if (ispunctuation2(asciifromstring(str, 1)) == false) then (
             if (stringlength(ret) > 0) then ($ret + " ")
         )
         ret $+ str
         freestring(str)
     end
 
-    var(i, ret, item, need_capitalise, segment, wantpronoun, next)
+    subscript, get_next_thing, begin
+        assert(i < parts_list.len -- 1)
+        var(next)
+        next := parts_list[i + 1]
+        assert(next >= 100)
+        return(next)
+    end
+
+    var(i, ret, item, need_capitalise, segment, wantpronoun)
     need_capitalise := true
     wantpronoun := false
     ret := NS
@@ -171,14 +177,19 @@ script, form_msg, parts_list, begin
             # The string gets freed by appendstr
             if (stringcompare(item, $96="a")) then (
                 # Look ahead
-                assert(i < parts_list.len -- 1)
-                next := parts_list[i + 1]
-                assert(next >= 100)
-                if (Thing_get_unique(next)) then (
+                if (Thing_get_unique(get_next_thing)) then (
                     freestring(segment)
                     segment := $"the"
                 )
+            ) else if (stringcompare(item, $96="the")) then (
+                # Look ahead
+                if (Thing_get_unique(get_next_thing) == PROPER_NOUN) then (
+                    # skip this 'the'
+                    freestring(segment)
+                    continue
+                )
             )
+
         ) else (
             if (wantpronoun) then (
                 segment := Thing_get_pronoun(item)
@@ -235,7 +246,7 @@ script, test_form_msg, begin
     Joules := alloc:Noun
     Joules.name! := savestring($"Joules")
     Joules.pronoun! := savestring($"he")
-    #Joules.unique := True
+    Joules.unique := PROPER_NOUN
 
     weapon := alloc:Noun
     weapon.name! := savestring($"Rifleon")
@@ -245,6 +256,8 @@ script, test_form_msg, begin
     entity := alloc:Noun
     entity.name! := savestring($"three-armed ape")
     entity.pronoun! := savestring($"it")
+    entity.unique := true
+
 
 
     ret := form_msg_lst($"You drop", $"a", weapon)
@@ -265,6 +278,16 @@ script, test_form_msg, begin
 
     ret := form_msg_lst(Joules, $"explodes as", PRONOUN, Joules, $"enters the chamber!")
     $0="Joules explodes as he enters the chamber!"
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+    ret := form_msg_lst($"You grab the corkscrew off", $"the", entity)
+    $0="You grab the corkscrew off the three-armed ape."
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+    ret := form_msg_lst($"You grab the corkscrew off", $"the", Joules)
+    $0="You grab the corkscrew off Joules."
     test_form_msg_equal(ret, 0)
     freestring(ret)
 
