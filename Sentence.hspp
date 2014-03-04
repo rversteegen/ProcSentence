@@ -124,8 +124,8 @@ end
 
 # For whether to prepend ' ' (KLUDGE)
 script, ispunctuation2, char, begin
-    # Check . ! ? , : ;
-    return (char == 46 || char == 63 || char == 33 || char == 44 || char == 58 || char == 59)
+    # Check . ! ? , : ; '
+    return (char == 46 || char == 63 || char == 33 || char == 44 || char == 58 || char == 59 || char == 39)
 end
 
 
@@ -145,10 +145,18 @@ script, form_msg, parts_list, begin
         #trace($0="segment is")
         #trace(str)
 
+        # Turn 'a' into 'an'
+        stringsprintf(96, $97="%c", asciifromstring(str, 1))
+        if (last_was_a && searchstring($98="aeiou", 96)) then (
+            $ret + "n"
+        )
+        #trace(      stringsprintf(99, $97="ret:%s str:%s last_was_a:%d '%c'", ret, str, last_was_a, asciifromstring(str, 1)))
+
         if (ispunctuation2(asciifromstring(str, 1)) == false) then (
             if (stringlength(ret) > 0) then ($ret + " ")
         )
         ret $+ str
+        last_was_a := stringcompare(str, $96="a")
         freestring(str)
     end
 
@@ -160,7 +168,7 @@ script, form_msg, parts_list, begin
         return(next)
     end
 
-    var(i, ret, item, need_capitalise, segment, wantpronoun)
+    var(i, ret, item, need_capitalise, segment, wantpronoun, last_was_a)
     need_capitalise := true
     wantpronoun := false
     ret := NS
@@ -226,7 +234,7 @@ script, test_form_msg, begin
     wasstack := stack
 
     subscript, form_msg_lst, arg1=NIL, arg2=NIL, arg3=NIL, arg4=NIL, arg5=NIL, arg6=NIL, arg7=NIL, begin
-      return(form_msg(lst8(arg1, arg2, arg3, arg4, arg5, arg6, arg7)))
+      return(form_msg(lst9(arg1, arg2, arg3, arg4, arg5, arg6, arg7)))
     end
 
     subscript, test_form_msg_equal, str1, str2, begin
@@ -296,7 +304,7 @@ script, test_form_msg, begin
     item.pronoun! := savestring($"it")
 
     ret := form_msg_lst($"a", item)
-    $0="A eight-sided coin."   #### fixme
+    $0="An eight-sided coin."
     test_form_msg_equal(ret, 0)
     freestring(ret)
 
