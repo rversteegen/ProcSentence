@@ -8,7 +8,7 @@ class Noun:
 	#__metaclass__ = _MetaNoun
 	var unique = false
 	var always_plural = false  #e.g. "Pills"
-	var name = ""
+	var name = "thing"
 	var pronoun = "it"
 	var modifier = ""
 	#var firstperson = false
@@ -120,11 +120,16 @@ func form(parts):
 	#for i, part in enumerate(parts):
 	while i < len(parts):
 		var part = parts[i]
-		print("part: ", part, " cap: ", cur.capitalise)
+		#print("part: ", part, " cap: ", cur.capitalise)
 		var nexttok = parts[i + 1] if i+1 < len(parts) else null
 		var next = GrammarState.new()
 		var phrase = ""
 		var first
+
+		if part is Object:
+			var n = part.get("noun")
+			if n:
+				part = n
 
 		if part is int or part is HIDE_NUM:
 			var val
@@ -140,6 +145,7 @@ func form(parts):
 			if part is HIDE_NUM:
 				phrase = ""
 
+			
 		elif part is Noun:
 			if part in mentioned:
 				phrase = part.get_pronoun()
@@ -223,12 +229,13 @@ func form(parts):
 		if phrase.rstrip(" ").ends_with("."):
 			next.capitalise = true
 		#Auto add space
-		if (len(ret) and (isalnum(strend(ret)) or strend(ret) in ".'!?")) and isalnum(phrase.left(1)):
+		if (len(ret) and (isalnum(strend(ret)) or strend(ret) in ".'!?")) and phrase and isalnum(phrase.left(1)):
 			ret += " "
 		ret += phrase
 		cur = next
 		i += 1
 	return ret
+
 
 func test():
 	var player = Noun.new()
