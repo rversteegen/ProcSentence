@@ -53,9 +53,10 @@ func first_personise(string):
 		return "have"
 	elif string == "readies":
 		return "ready"
-	elif string.ends_with("es") and not string in ["takes", "consumes", "fires", "convulses", "dies", "struggles"]:
-		return string.trim_suffix("es")
-	elif string.ends_with("s"):
+	elif string.ends_with("es"):
+		if string in ["takes", "consumes", "fires", "convulses", "dies", "struggles"]:
+			return string.trim_suffix("es")
+	if string.ends_with("s"):
 		return string.trim_suffix("s")
 	return string
 
