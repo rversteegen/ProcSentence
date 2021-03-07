@@ -1,6 +1,7 @@
 extends Node
 #class_name Sentence
 
+# FIXME: Sentence shouldn't be a singleton, because it has this state
 var context = []
 
 
@@ -14,27 +15,27 @@ class Noun:
 	#var firstperson = false
 
 
-	func get_name():
+	func get_name() -> String:
 		var ret = self.name
 		if not self.unique and self.modifier:
 			ret = self.modifier + " " + ret
 		return ret
 
-	func get_pronoun():
+	func get_pronoun() -> String:
 		if self.always_plural and self.pronoun == "it":
 			return "them"
 		return self.pronoun
 
-	func _to_string():
+	func _to_string() -> String:
 		return self.get_name()
 
-func pluralise(string):
+func pluralise(string : String) -> String:
 	if string.ends_with("s"):
 		return string + "es"
 	else:
 		return string + "s"
 
-func possessivise(string):
+func possessivise(string : String) -> String:
 	"?!?"
 	if string == "you":
 		return "your"
@@ -45,7 +46,7 @@ func possessivise(string):
 	else:
 		return string + "'s"
 
-func first_personise(string):
+func first_personise(string : String) -> String:
 	"special cases go here!"
 	if string == "is":
 		return "are"
@@ -73,16 +74,16 @@ class HIDE_NUM:
 	func _init(_value):
 		value = _value
 
-func strend(string, length=1):
+func strend(string : String, length=1) -> String:
 	if len(string) <= length:
 		return string
 	return string.right(len(string) - length)
 
-func isalnum(chr):
+func isalnum(chr : String) -> bool:
 	var o = ord(chr)
 	return (o >= ord("a") and o <= ord("z")) or (o >= ord("A") and o <= ord("Z")) or (o >= ord("0") and o <= ord("9"))
 
-func simple_capitalize(phrase):
+func simple_capitalize(phrase : String) -> String:
 	return phrase.left(1).capitalize() + phrase.right(1)
 
 func form(parts):
@@ -123,8 +124,8 @@ func form(parts):
 		var part = parts[i]
 		#print("part: ", part, " cap: ", cur.capitalise)
 		var nexttok = parts[i + 1] if i+1 < len(parts) else null
-		var next = GrammarState.new()
-		var phrase = ""
+		var next := GrammarState.new()
+		var phrase := ""
 		var first
 
 		if part is Object:
@@ -192,7 +193,9 @@ func form(parts):
 			var words = part.split(" ")
 			first = words[0].substr(1)
 			if cur.firstperson:
-				first = first_personise(first)
+				var stripped = first.rstrip("!?.:;,\"'()/\\")
+				var suffix = first.substr(stripped.length())
+				first = first_personise(stripped) + suffix
 			words[0] = first
 			phrase = words.join(" ")
 
