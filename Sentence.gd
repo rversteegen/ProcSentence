@@ -54,13 +54,17 @@ func first_personise(string : String) -> String:
 	"special cases go here!"
 	if string == "is":
 		return "are"
+	elif string == "isn't":
+		return "aren't"
 	elif string == "has":
 		return "have"
 	elif string == "readies":
 		return "ready"
-	elif string.ends_with("es"):
-		if string in ["takes", "consumes", "fires", "convulses", "dies", "struggles"]:
-			return string.trim_suffix("es")
+	elif string.ends_with("shes") or string.ends_with("sses"):  # bashes, misses
+		return string.trim_suffix("es")
+	#elif string.ends_with("es"):
+	# 	if not string in ["takes", "consumes", "fires", "convulses", "dies", "struggles"]:
+	# 		return string.trim_suffix("es")
 	if string.ends_with("s"):
 		return string.trim_suffix("s")
 	return string
@@ -136,7 +140,7 @@ func form(parts):
 			# Pick randomly
 			part = part[randi() % part.size()]
 
-		if part == null or (part is String and part == ""):
+		if part == null or (part is String and part == ""):   # fixme: doesn't seem to skip ""
 			i += 1 # skip
 			continue
 
@@ -190,8 +194,10 @@ func form(parts):
 					
 			if phrase == "you":
 				next.firstperson = true
-			if nexttok == "'s":  #cur.possess:
-				i += 1 #skip
+			if nexttok is String and nexttok.begins_with("'s"):  #cur.possess:
+				nexttok = nexttok.substr(3)  # trim "'s "
+				parts[i + 1] = nexttok   # will be skipped if now empty
+				#i += 1 #skip
 				phrase = possessivise(phrase)
 				next.put_a = false
 			if cur.pluralise:
@@ -205,12 +211,15 @@ func form(parts):
 		elif part.begins_with("^"):
 			#verb
 			var words = part.split(" ")
-			first = words[0].substr(1)
-			if cur.firstperson:
-				var stripped = first.rstrip("!?.:;,\"'()/\\")
-				var suffix = first.substr(stripped.length())
-				first = first_personise(stripped) + suffix
-			words[0] = first
+			for idx in range(words.size()):
+				var word = words[idx]
+				if word.begins_with("^"):
+					word = word.substr(1)
+					if cur.firstperson:
+						var stripped = word.rstrip("!?.:;,\"'()/\\")
+						var suffix = word.substr(stripped.length())
+						word = first_personise(stripped) + suffix
+					words[idx] = word
 			phrase = words.join(" ")
 
 		elif part == "'s":
@@ -277,6 +286,10 @@ func test():
 	var ans
 	ret = form(["the", player, "^is shot through by", 1, "bolt of energy.", player, "^is mortally wounded!"])
 	ans = "You are shot through by a bolt of energy. You are mortally wounded!"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form(["the", player, "^lunges but ^misses"])
+	ans = "You lunge but miss"
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	ret = form(["the", entity, "^is shot through by", 3, "bolt of energy.", entity, "^is mortally wounded!"])
