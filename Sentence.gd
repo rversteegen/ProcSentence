@@ -2,8 +2,12 @@ extends Node
 #class_name Sentence
 
 # FIXME: Sentence shouldn't be a singleton, because it has this state
-var context = []
+var context := []
 
+func add_context(item):
+	if context.size() > 3:
+		context.pop_front()
+	context.append(item)
 
 class Noun:
 	#__metaclass__ = _MetaNoun
@@ -149,8 +153,10 @@ func form(parts):
 
 			
 		elif part is Noun:
-			if part in mentioned:
+			if part in mentioned and not (cur.put_the or cur.put_a):
 				phrase = part.get_pronoun()
+				cur.put_the = false
+				cur.put_a = false
 			else:
 				phrase = part.get_name()
 				mentioned[part] = true
@@ -182,7 +188,7 @@ func form(parts):
 				next.put_a = false
 			if cur.pluralise:
 				phrase = pluralise(phrase)
-			context.append(part)
+			add_context(part)
 
 		elif not part is String:
 			phrase = str(part)
@@ -233,7 +239,7 @@ func form(parts):
 		if phrase.rstrip(" ").ends_with("."):
 			next.capitalise = true
 		#Auto add space
-		if (len(ret) and (isalnum(strend(ret)) or strend(ret) in ".'!?")) and phrase and isalnum(phrase.left(1)):
+		if (len(ret) and (isalnum(strend(ret)) or strend(ret) in ",;.'!?")) and phrase and isalnum(phrase.left(1)):
 			ret += " "
 		ret += phrase
 		cur = next
