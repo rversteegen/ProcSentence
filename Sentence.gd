@@ -9,6 +9,9 @@ func add_context(item):
 		context.pop_front()
 	context.append(item)
 
+func wipe_context():
+	context = []
+
 class Noun:
 	#__metaclass__ = _MetaNoun
 	var unique = false
@@ -60,7 +63,7 @@ func first_personise(string : String) -> String:
 		return "have"
 	elif string == "readies":
 		return "ready"
-	elif string.ends_with("shes") or string.ends_with("sses"):  # bashes, misses
+	elif string.ends_with("shes") or string.ends_with("ches") or string.ends_with("sses"):  # bashes, misses, punches
 		return string.trim_suffix("es")
 	#elif string.ends_with("es"):
 	# 	if not string in ["takes", "consumes", "fires", "convulses", "dies", "struggles"]:
@@ -94,7 +97,7 @@ func isalnum(chr : String) -> bool:
 func simple_capitalize(phrase : String) -> String:
 	return phrase.left(1).capitalize() + phrase.right(1)
 
-func form(parts):
+func form(parts, add_period = false):
 
 	# """Form a message from a list of free form strings (if prepended with ^, the first
 	# word is taken as a verb in third person), numbers or HIDE_NUM(number) wrappers
@@ -261,7 +264,18 @@ func form(parts):
 		ret += phrase
 		cur = next
 		i += 1
+	if add_period:
+		if not ret.rstrip(" ")[-1] in ".?!:;,":
+			ret += ".  "
+		elif not ret[-1] == " ":
+			ret += "  "
+	elif ret[-1] in ".?!:;,":
+		ret += "  "
+
 	return ret
+
+func sentence(arr):
+	return form(arr, true)
 
 
 func test():
