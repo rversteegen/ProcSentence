@@ -132,6 +132,14 @@ func form(parts):
 		var phrase := ""
 		var first
 
+		while part is Array:
+			# Pick randomly
+			part = part[randi() % part.size()]
+
+		if part == null or (part is String and part == ""):
+			i += 1 # skip
+			continue
+
 		if part is Object:
 			var n = part.get("noun")
 			if n:
