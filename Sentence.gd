@@ -72,6 +72,12 @@ func first_personise(string : String) -> String:
 		return string.trim_suffix("s")
 	return string
 
+func a_or_an(phrase):
+	if phrase.left(1) in "aeiou":
+		return "an " + phrase
+	else:
+		return "a " + phrase
+
 class GrammarState:
 	var possess = false
 	var capitalise = false
@@ -186,10 +192,8 @@ func form(parts, add_period = false):
 								phrase = "lots of " + phrase
 							else:
 								phrase = "some " + phrase
-						elif phrase.left(1) in "aeiou":
-							phrase = "an " + phrase
 						else:
-							phrase = "a " + phrase
+							phrase = a_or_an(phrase)
 					elif cur.put_the:  # and not part.proper_noun:
 						phrase = "the " + phrase
 				cur.put_the = false
@@ -249,7 +253,7 @@ func form(parts, add_period = false):
 
 
 		if cur.put_a:
-			phrase = "a " + phrase
+			phrase = a_or_an(phrase)
 		if cur.put_the:
 			phrase = "the " + phrase
 		if cur.capitalise:
@@ -269,13 +273,20 @@ func form(parts, add_period = false):
 			ret += ".  "
 		elif not ret[-1] == " ":
 			ret += "  "
-	elif ret[-1] in ".?!:;,":
-		ret += "  "
+	# elif ret[-1] in ".?!:;,":
+	# 	ret += "  "
 
 	return ret
 
 func sentence(arr):
 	return form(arr, true)
+
+func end_sentence(string):
+	if not string.rstrip(" ")[-1] in ".?!:;,":
+		string += ".  "
+	elif not string[-1] == " ":
+		string += "  "
+	return string
 
 
 func test():
@@ -304,6 +315,18 @@ func test():
 
 	ret = form(["the", player, "^lunges but ^misses"])
 	ans = "You lunge but miss"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form(["a", "image"])
+	ans = "An image"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form(["a", "", "image"])
+	ans = "An image"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form(["stop", ".", "a deer"])
+	ans = "Stop. A deer"
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	ret = form(["the", entity, "^is shot through by", 3, "bolt of energy.", entity, "^is mortally wounded!"])
