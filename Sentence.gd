@@ -103,6 +103,16 @@ func isalnum(chr : String) -> bool:
 func simple_capitalize(phrase : String) -> String:
 	return phrase.left(1).capitalize() + phrase.right(1)
 
+func maybe_use_pronoun(part, mentioned, used_pronouns):
+	"Returns a pronoun to use, or null. Only uses each pronoun for one thing per form() call."
+	if not part in mentioned:
+		return null
+	var pronoun = part.get_pronoun()
+	if pronoun in used_pronouns and used_pronouns[pronoun] != part:
+		return null
+	used_pronouns[pronoun] = part
+	return pronoun
+
 func form(parts, add_period = false):
 
 	# """Form a message from a list of free form strings (if prepended with ^, the first
@@ -127,7 +137,8 @@ func form(parts, add_period = false):
 	# -> "An eight-sided coin"
 	# """
 
-	var mentioned = {} #set()
+	var mentioned = {} #set() Objects
+	var used_pronouns = {}   # Map from pronouns like "it" to objects
 	var ret = ""
 
 	var cur = GrammarState.new()
@@ -174,8 +185,14 @@ func form(parts, add_period = false):
 
 			
 		elif part is Noun:
-			if part in mentioned and not (cur.put_the or cur.put_a):
-				phrase = part.get_pronoun()
+			# if part in mentioned and not (cur.put_the or cur.put_a):
+			# 	phrase = part.get_pronoun()
+			# 	cur.put_the = false
+			# 	cur.put_a = false
+
+			var pronoun = maybe_use_pronoun(part, mentioned, used_pronouns)
+			if pronoun:
+				phrase = pronoun
 				cur.put_the = false
 				cur.put_a = false
 			else:
@@ -263,12 +280,15 @@ func form(parts, add_period = false):
 		if phrase.rstrip(" ").ends_with("."):
 			next.capitalise = true
 		#Auto add space
-		if (len(ret) and (isalnum(strend(ret)) or strend(ret) in ",;.'!?")) and phrase and isalnum(phrase.left(1)):
-			ret += " "
+		if (len(ret) and (isalnum(ret[-1]) or ret[-1] in ",;.'!?")) and phrase and isalnum(phrase.left(1)):
+			if ret[-1] in ".!?":
+				ret += "  "
+			else:
+				ret += " "
 		ret += phrase
 		cur = next
 		i += 1
-	if add_period:
+	if add_period and len(ret):
 		if not ret.rstrip(" ")[-1] in ".?!:;,":
 			ret += ".  "
 		elif not ret[-1] == " ":
