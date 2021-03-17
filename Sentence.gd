@@ -73,7 +73,7 @@ func first_personise(string : String) -> String:
 	return string
 
 func a_or_an(phrase):
-	if phrase.left(1) in "aeiou":
+	if phrase.left(1).to_lower() in "aeiou":
 		return "an " + phrase
 	else:
 		return "a " + phrase
