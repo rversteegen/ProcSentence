@@ -154,7 +154,6 @@ func form(parts, add_period = false):
 		var nexttok = parts[i + 1] if i+1 < len(parts) else null
 		var next := GrammarState.new()
 		var phrase := ""
-		var first
 
 		while part is Array:
 			# Pick randomly
