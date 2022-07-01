@@ -104,14 +104,18 @@ func simple_capitalize(phrase : String) -> String:
 	return phrase.left(1).capitalize() + phrase.right(1)
 
 func maybe_use_pronoun(part, mentioned, used_pronouns):
-	"Returns a pronoun to use, or null. Only uses each pronoun for one thing per form() call."
-	if not part in mentioned:
-		return null
+	"""Returns a pronoun to use, or null. Only uses each pronoun for one unambiguous thing per form() call."""
 	var pronoun = part.get_pronoun()
 	if pronoun in used_pronouns and used_pronouns[pronoun] != part:
+		# Multiple nouns share the same pronoun, so don't use that pronoun. (If the pronoun was
+		# already used earlier that's alright, but it's now become ambiguous.) It could be used only
+		# if it were known that one noun is the subject and the other the object of the current verb.
+		used_pronouns[pronoun] = null
 		return null
 	used_pronouns[pronoun] = part
-	return pronoun
+	if part in mentioned:
+		return pronoun
+	return null
 
 func form(parts, add_period = false):
 
@@ -204,6 +208,7 @@ func form(parts, add_period = false):
 							cur.put_the = true
 					if cur.put_a:
 						if part.always_plural:
+							# lots/some can be applied to both countable and uncountable nouns
 							if cur.pluralise:
 								phrase = "lots of " + phrase
 							else:
@@ -329,7 +334,7 @@ func test():
 	var ret
 	var ans
 	ret = form(["the", player, "^is shot through by", 1, "bolt of energy.", player, "^is mortally wounded!"])
-	ans = "You are shot through by a bolt of energy. You are mortally wounded!"
+	ans = "You are shot through by a bolt of energy.  You are mortally wounded!"
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	ret = form(["the", player, "^lunges but ^misses"])
@@ -345,15 +350,20 @@ func test():
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	ret = form(["stop", ".", "a deer"])
-	ans = "Stop. A deer"
+	ans = "Stop.  A deer"
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	ret = form(["the", entity, "^is shot through by", 3, "bolt of energy.", entity, "^is mortally wounded!"])
-	ans = "The three-armed ape is shot through by 3 bolts of energy. It is mortally wounded!"
+	ans = "The three-armed ape is shot through by 3 bolts of energy.  It is mortally wounded!"
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	ret = form(["the", player, "'s", weapon, "explodes as", player, "^fires it!"])
 	ans = "Your rifle explodes as you fire it!"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	# entity and weapon both have pronoun 'it'. Should use 'it' before weapon is introduced but not afterwards.
+	ret = form(["the", player, "^whacks the", entity, "with", entity, "'s", "own", weapon, ".", player, "^breaks the", weapon])
+	ans = "You whack the three-armed ape with its own rifle.  You break the rifle"
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	entity = Noun.new()
