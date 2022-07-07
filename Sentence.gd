@@ -311,15 +311,19 @@ func form(parts, add_period = false):
 				next.capitalise = true
 		if phrase.rstrip(" ").ends_with("."):
 			next.capitalise = true
-		#Auto add space
-		if (len(ret) and (isalnum(ret[-1]) or ret[-1] in ",;.'!?")) and phrase and isalnum(phrase.left(1)):
+
+		# Auto add space (two spaces at end of a sentence) unless punctuation disallows it.
+		# Maybe should automatically add a comma before a quote mark, but can be done manually.
+		if (len(ret) and (isalnum(ret[-1]) or ret[-1] in ",;.'!?")) and phrase and not phrase[0] in ",;.!?":
 			if ret[-1] in ".!?":
 				ret += "  "
 			else:
 				ret += " "
+
 		ret += phrase
 		cur = next
 		i += 1
+
 	if add_period and len(ret):
 		if not ret.rstrip(" ")[-1] in ".?!:;,":
 			ret += ".  "
@@ -389,6 +393,10 @@ func test():
 
 	ret = form(["stop", ".", "a deer"])
 	ans = "Stop.  A deer"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form(["You say", ",", "\"Hi.\""])
+	ans = "You say, \"Hi.\""
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	ret = form(["the", entity, "^is shot through by", 3, "bolt of energy.", entity, "^is mortally wounded!"])
