@@ -1,12 +1,14 @@
-extends Node
-#class_name Sentence
+class_name ProcSen
+# In order to autoload this script it instead needs to extend Node
+#extends Node
+
 
 # The context has just one purpose: if a noun is in the context then
 # ["a", noun] becomes "the noun" (i.e. only when "a" is explicitly given).
 # It doesn't cause the noun to immediately be referred to with a pronoun.
 # (TODO: but perhaps could cause shortnames to be immediately used)
 
-# FIXME: Sentence shouldn't be a singleton, because it has this state
+# FIXME: ProcSen shouldn't be a singleton, because it has this state?
 var context := []
 
 func add_context(item):
@@ -495,5 +497,21 @@ func test():
 	ans = "Bob and you argue over the eight-sided coin.  You take it and punch him"
 	#if ret != ans: print( "Error! Got '" + ret + "'")
 
+	var machine = Noun.new()
+	machine.name = "vending machine"
+	machine.shortname = "machine"
+
+	var coins = Noun.new()
+	coins.name = "coins"
+	coins.always_plural = true
+
+	# Test always_plural -- since changes the pronoun to "them", can use "it" unambiguously for the machine
+	ret = form(["the", player, "^offers", "the", machine, player, "'s", coins, ".", "the", machine, "^accepts", "the", coins])
+	ans = "You offer the vending machine your coins.  It accepts them"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form(["the", player, "^offers", "the", machine, player, "'s", item, ".", "the", machine, "^accepts", "the", item])
+	ans = "You offer the vending machine your eight-sided coin.  The machine accepts the coin"
+	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	print( "tests done.")
