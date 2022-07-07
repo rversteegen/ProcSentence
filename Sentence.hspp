@@ -1,0 +1,345 @@
+
+#######################   SENTENCES ##########################################
+
+defineconstant(555, PROPER_NOUN)
+
+defineconstant(0, idx:name!)
+defineconstant(1, idx:pronoun!)
+defineconstant(2, idx:unique)   # true, false, or PROPER_NOUN
+#defineconstant(3, idx:always_plural)  # eg Pills
+setsizeof  Noun, 4, NOUN
+
+# setsizeof  NounWrapper, 4, SIZE4    ## FIXME (MUST BE at least 1 larger than NOUN!)
+# #defineconstant(0, idx:type)  #duplicate
+# # The Noun data is at ptr + 1
+
+
+# A multimethod
+script, Thing_get_noun, thing, begin
+    if (thing >= heap NOUN base && thing < heap NOUN end) then (
+        # Hack -- can't use .type memebr since Noun is inherited
+        return(loadstring(thing.name!))
+    ) else if (thing.type == type:Entity) then (
+        return(entity_get_name(thing))
+    ) else if (thing.type == type:Item) then (
+        return(item_get_name(thing))
+    ) else (
+        scripterror(stringsprintf(98, $99="Unknown data type %d (ptr %d)", thing.type, thing))
+    )
+end
+
+# A multimethod
+script, Thing_get_pronoun, thing, begin
+    if (thing >= heap NOUN base && thing < heap NOUN end) then (
+        # Hack -- can't use .type memebr since Noun is inherited
+        return(loadstring(thing.pronoun!))
+    ) else if (thing.type == type:Entity) then (
+        return(entity_get_pronoun(thing))
+    ) else if (thing.type == type:Item) then (
+        return(item_get_pronoun(thing))
+    ) else (
+        scripterror(stringsprintf(98, $99="Unknown data type %d (ptr %d)", thing.type, thing))
+    )
+end
+
+# A multimethod
+# Returns true, false, or PROPER_NOUN
+script, Thing_get_unique, thing, begin
+    if (thing >= heap NOUN base && thing < heap NOUN end) then (
+        # Hack -- can't use .type memebr since Noun is inherited
+        return(thing.unique)
+    ) else if (thing.type == type:Entity) then (
+        return(entity_get_unique(thing))
+    ) else if (thing.type == type:Item) then (
+        return(item_get_unique(thing))
+    ) else (
+        scripterror(stringsprintf(98, $99="Unknown data type %d (ptr %d)", thing.type, thing))
+    )
+end
+
+script, freeNoun, noun, begin
+    freestring(noun.name!)
+    freestring(noun.pronoun!)
+    noun.name! := -99999
+    noun.pronoun! := -99999
+    dealloc:Noun(noun)
+end
+
+
+# Returns a new string
+script, capitalise, str, begin
+    var(ret, letter)
+    ret := NS
+    letter := asciifromstring(str, 1)
+    if (letter >= 97 && letter <= 122) then (letter -= 32)
+    ret $= str
+    replacechar(ret, 1, letter)
+    freestring(str)
+    return(ret)
+end
+
+# Returns a new string possibly with s appended if amount<>1
+script, plural, str, amount=2, begin
+    var(ret, letter, pluralise_at)
+    if (amount == 1) then (exitreturning(str))
+    ret := NS
+    ret $= str
+    # potion of foo --> potions of foo
+    # Add everything before the ' of '
+    pluralise_at := searchstring(str, $99=" of ")
+    if (pluralise_at == 0) then (pluralise_at := stringlength(str) + 1)
+    trimstring(ret, 1, pluralise_at -- 1)
+
+    letter := asciifromstring(ret, stringlength(ret))
+    # Check whether 's'
+    if (letter == 115) then (
+        #$ret + "es"
+    ) else (
+        $ret + "s"
+    )
+
+    # Rest of string
+    99 $= str
+    trimstring(99, pluralise_at, stringlength(str))
+    ret $+ 99
+
+    freestring(str)
+    return(ret)
+end
+
+
+# Convert string to number
+script, tostring, num, begin
+    var(ret)
+    ret := NS
+    appendnumber(ret, num)
+    return(ret)
+end
+
+# For whether to append '.'
+script, ispunctuation, char, begin
+    # Punctuation other than space or ), or one of : ; ?
+    return ((char < 48 && char <> 32 && char <> 41) || char == 58 || char == 59 || char == 63)
+end
+
+# For whether to prepend ' ' (KLUDGE)
+script, ispunctuation2, char, begin
+    # Check . ! ? , : ; '
+    return (char == 46 || char == 63 || char == 33 || char == 44 || char == 58 || char == 59 || char == 39)
+end
+
+
+#defineconstant(-100, HIDE_NUM)
+#defineconstant(-101, SHOW_NUM)
+defineconstant(-789000000, PRONOUN)   # use pronoun rather than name
+
+# Keywords:
+#  $"the" -- skipped in front of proper nouns
+#  $"a"   -- converted into "the" for unique things (unimplemented: proper nouns)
+
+# Arguments can be: string IDs (0-99), or pointers to something (but NOT slicestrings)
+# that can be passed to Thing_get_pronoun/noun
+script, form_msg, parts_list, begin
+
+    subscript, appendstr, str, begin
+        #trace($0="segment is")
+        #trace(str)
+
+        # Turn 'a' into 'an'
+        stringsprintf(96, $97="%c", asciifromstring(str, 1))
+        if (last_was_a && searchstring($98="aeiou", 96)) then (
+            $ret + "n"
+        )
+        #trace(      stringsprintf(99, $97="ret:%s str:%s last_was_a:%d '%c'", ret, str, last_was_a, asciifromstring(str, 1)))
+
+        if (ispunctuation2(asciifromstring(str, 1)) == false) then (
+            if (stringlength(ret) > 0) then ($ret + " ")
+        )
+        ret $+ str
+        last_was_a := stringcompare(str, $96="a")
+        freestring(str)
+    end
+
+    subscript, get_next_thing, begin
+        assert(i < parts_list.len -- 1)
+        var(next)
+        next := parts_list[i + 1]
+        assert(next >= 100)
+        return(next)
+    end
+
+    var(i, ret, item, need_capitalise, segment, wantpronoun, last_was_a)
+    need_capitalise := true
+    wantpronoun := false
+    ret := NS
+
+    for (i, 0, parts_list.len -- 1) do (
+        item := parts_list[i]
+        # Can't have 
+        if (item == PRONOUN) then (
+            wantpronoun := true
+            continue
+        ) else if (item < 100) then (
+            # String ID
+            segment := item
+            # The string gets freed by appendstr
+            if (stringcompare(item, $96="a")) then (
+                # Look ahead
+                if (Thing_get_unique(get_next_thing)) then (
+                    freestring(segment)
+                    segment := $"the"
+                )
+            ) else if (stringcompare(item, $96="the")) then (
+                # Look ahead
+                if (Thing_get_unique(get_next_thing) == PROPER_NOUN) then (
+                    # skip this 'the'
+                    freestring(segment)
+                    continue
+                )
+            )
+
+        ) else (
+            if (wantpronoun) then (
+                segment := Thing_get_pronoun(item)
+            ) else (
+                segment := Thing_get_noun(item)
+            )
+        )
+        if (need_capitalise) then (segment := capitalise(segment))
+        need_capitalise := false
+        appendstr(segment)
+        wantpronoun := false
+
+        # If string ends in '.'
+        if (asciifromstring(ret, stringlength(ret)) == 46) then (need_capitalise := true)
+    )
+    var(char)
+    char := asciifromstring(ret, stringlength(ret))
+    if (ispunctuation(char) == false) then (
+            appendascii(ret, 46)  # append .
+    )
+
+    freelist(parts_list)
+    return (ret)
+end
+
+
+
+
+script, test_form_msg, begin
+
+    var(slicestrings, nstrings, wasstack)
+    slicestrings := childcount(slicestring_parent)
+    nstrings := numusedstrings
+    wasstack := stack
+
+    subscript, form_msg_lst, arg1=NIL, arg2=NIL, arg3=NIL, arg4=NIL, arg5=NIL, arg6=NIL, arg7=NIL, begin
+      return(form_msg(lst9(arg1, arg2, arg3, arg4, arg5, arg6, arg7)))
+    end
+
+    subscript, test_form_msg_equal, str1, str2, begin
+        if (stringcompare(str1, str2) == false) then (
+            trace($1="Error! Got '"), trace(str1), trace($1="', expected '"), trace(str2), trace($1="'")
+        )
+    end
+
+
+    var(oneself, Joules, weapon, entity, ret, item)
+    oneself := alloc:Noun
+    oneself.name! := savestring($"you")
+    oneself.pronoun! := savestring($"you")
+    #oneself.unique := True
+    #oneself.firstperson := True
+
+    Joules := alloc:Noun
+    Joules.name! := savestring($"Joules")
+    Joules.pronoun! := savestring($"he")
+    Joules.unique := PROPER_NOUN
+
+    weapon := alloc:Noun
+    weapon.name! := savestring($"Rifleon")
+    weapon.pronoun! := savestring($"it")
+    weapon.unique := true
+
+    entity := alloc:Noun
+    entity.name! := savestring($"three-armed ape")
+    entity.pronoun! := savestring($"it")
+    entity.unique := true
+
+
+
+    ret := form_msg_lst($"You drop", $"a", weapon)
+    $0="You drop the Rifleon."
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+
+    ret := form_msg_lst($"You shoot the", entity, $"with a bolt of energy.", PRONOUN, entity, $"is stunned.")
+    $0="You shoot the three-armed ape with a bolt of energy. It is stunned."
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+    ret := form_msg_lst($"the", entity, $"is shot through by a", $"bolt of energy.", PRONOUN, entity, $"is mortally wounded!")
+    $0="The three-armed ape is shot through by a bolt of energy. It is mortally wounded!"
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+    ret := form_msg_lst(Joules, $"explodes as", PRONOUN, Joules, $"enters the chamber!")
+    $0="Joules explodes as he enters the chamber!"
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+    ret := form_msg_lst($"You grab the corkscrew off", $"the", entity)
+    $0="You grab the corkscrew off the three-armed ape."
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+    ret := form_msg_lst($"You grab the corkscrew off", $"the", Joules)
+    $0="You grab the corkscrew off Joules."
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+    item := alloc:Noun
+    item.name! := savestring($"eight-sided coin")
+    item.pronoun! := savestring($"it")
+
+    ret := form_msg_lst($"a", item)
+    $0="An eight-sided coin."
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+    ret := form_msg_lst($"the", item, $", a nice find")
+    $0="The eight-sided coin, a nice find."
+    test_form_msg_equal(ret, 0)
+    freestring(ret)
+
+    $0="item"
+    test_form_msg_equal(staticstring(plural($"item", 1)), 0)
+
+    $0="items"
+    test_form_msg_equal(staticstring(plural($"item", 2)), 0)
+
+    $0="claws"
+    test_form_msg_equal(staticstring(plural($"claws", 2)), 0)
+    
+    $0="spelunker's hats"
+    test_form_msg_equal(staticstring(plural($"spelunker's hat", 2)), 0)
+
+    $0="potions of flames"
+    test_form_msg_equal(staticstring(plural($"potion of flames", 2)), 0)
+
+
+    freeNoun(oneself)
+    freeNoun(Joules)
+    freeNoun(weapon)
+    freeNoun(item)
+    freeNoun(entity)
+
+
+    listusedstrings()
+    assert(nstrings == numusedstrings)
+    assert(childcount(slicestring_parent) == slicestrings)
+    assert(wasstack == stack)
+
+    trace($0="form_msg tests done.")
+end
