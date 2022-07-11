@@ -61,22 +61,36 @@ func possessivise(string : String) -> String:
 		return string + "'s"
 
 func first_personise(string : String) -> String:
-	"special cases go here!"
+	"""Convert a verb's inflection from third to first person. Must be in third-person,
+	but can be in any tense. If not present tense (doesn't end in "s") does nothing."""
 	if string == "is":
 		return "are"
 	elif string == "isn't":
 		return "aren't"
 	elif string == "has":
 		return "have"
-	elif string == "readies":
-		return "ready"
-	elif string.ends_with("shes") or string.ends_with("ches") or string.ends_with("sses"):  # bashes, misses, punches
-		return string.trim_suffix("es")
-	#elif string.ends_with("es"):
-	# 	if not string in ["takes", "consumes", "fires", "convulses", "dies", "struggles"]:
-	# 		return string.trim_suffix("es")
-	if string.ends_with("s"):
-		return string.trim_suffix("s")
+	elif string.ends_with("ies"):
+		# E.g. flies, readies
+		if string in ["belies", "birdies", "dies", "lies", "ties", "underlies", "unties", "vies"]:
+			return string.trim_suffix("s")
+		else:
+			return string.trim_suffix("ies") + "y"
+	elif string.right(3) in ["oes", "xes"] or string.right(4) in ["ches", "shes", "sses", "tzes", "zzes"]:
+		# E.g. goes, mixes, launches, bashes, misses, waltzes, buzzes
+		if string in ["axes", "aches", "avalanches", "caches", "canoes", "hoes", "shoes", "toes"]:
+			return string.trim_suffix("s")
+		elif string in ["gasses", "degasses", "outgasses"]:
+			return string.trim_suffix("ses")
+		elif string in ["quizzes", "whizzes"]:
+			return string.trim_suffix("zes")
+		else:
+			return string.trim_suffix("es")
+	elif string.ends_with("s"):
+		# E.g. bathes
+		if string in ["aliases", "biases", "canvases", "choruses", "focuses"]:
+			return string.trim_suffix("es")
+		else:
+			return string.trim_suffix("s")
 	return string
 
 func a_or_an(phrase):
