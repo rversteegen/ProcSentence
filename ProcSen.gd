@@ -20,14 +20,34 @@ func wipe_context():
 	context = []
 
 class Noun:
-	var unique = false         # Proper noun? If true, never use "a" or "the"
-	var always_plural = false  # E.g. if .name == "Pills"
-	var name = "thing"
-	var pronoun = "it"         # "he", "she", "they" or "it" (subjective case)
-	var shortname = ""         # If the pronoun can't be used, this is used instead if unique
-	var modifier = ""          # Added to name, e.g. "green". Also added to shortname if not otherwise unique
-	#var firstperson = false
+	"""Somewhat misnamed, this actually represents a noun phrase, e.g. "bottle of ink", or
+	can be a bare pronoun such as "I", "you", or even "who", "what", "where", "this", "that", "these", or "those"
+	e.g. in "You take that."
+	It's permissable to include a determiner in the name, e.g.
+	  "Bob's pen", "this cow", "many nails", "the Eiffel Tower", "that", "your Majesty",
+	in which case set unique = true, and you need to ensure shortname (if any) is also "determined", e.g.
+	  "the pen", "the cow", "the nails", "the tower"
+	or you can add determiners procedurally, e.g. form([Bob, "'s", pen])
 
+	Note that if you want to form a sentence referring to multiple of the same
+	type of thing, e.g. two men, then each should have its own Noun instance.
+	"""
+	var unique = false         # Never add "a" or "the" (see above), could be called "determined".
+	var plural = false         # If the name/shortname/pronoun are already plural e.g. "pills", "we".
+                               # Rather than set .plural you can instead pass a number, e.g.
+							   # form([HIDE_NUM(2), Apple]) -> "apples"
+							   # Note that "trousers" is plural but "pair of trousers" isn't!
+	var name = ""              # Optional, if no name is given uses pronoun instead
+	var pronoun = ""           # Optional; defaults to "it", or "they" if .plural.
+							   # One of: "I", "we", "you", "he", "she",
+							   # "it", "they", "who"
+							   # Other pronouns (e.g. "me", "yourself")
+	                           # Must be subjective case and should be pluralised if .plural is true.
+	var shortname = ""         # if the pronoun can't be used, this is used instead (if unambiguous)
+	var modifier = ""          # added to name, e.g. "green". Also added to shortname to disambiguate
+
+	func _init(_name : String = "", _pronoun = ""):
+		name = _name
 
 	func get_name() -> String:
 		var ret = self.name
@@ -36,18 +56,49 @@ class Noun:
 		return ret
 
 	func get_pronoun() -> String:
-		if self.always_plural and self.pronoun == "it":
-			return "them"
-		return self.pronoun
+		# The blank default is a convenience so that you don't need to set .pronoun if setting .plural
+		if self.pronoun:
+			return self.pronoun
+		if self.plural:
+			return "they"
+		else:
+			return "it"
 
 	func _to_string() -> String:
 		return self.get_name()
 
+# Very incomplete, expand as needed
+var plural_exceptions = {
+	"I":"we", "he":"they", "she":"they", "it":"they", "this":"these", "that":"those", "what":"which",
+	"person":"people", "child":"children", "human":"humans", "hero":"heroes", "thief":"thieves",
+	"die":"dice", "goose":"geese", "fish":"fish", "sheep":"sheep", "foot":"feet", "tooth":"teeth"
+}
+
 func pluralise(string : String) -> String:
-	if string.ends_with("s"):
+	"""Inflect a noun/pronoun from singular to plural. Many irregular nouns, including all Greek or Latin ones aren't handled!
+	Add new exceptions as needed."""
+	var except = plural_exceptions.get(string)
+	if except: return except
+
+	if string[-1] in "sxz" or string.right(2) == "ch" or string.right(3) in ["rgo", "ato"]:
+		# E.g. embargo, cargo, potato, tomato
 		return string + "es"
-	else:
-		return string + "s"
+	elif string.ends_with("man"):
+		return string.trim_suffix("man") + "men"
+	elif string.ends_with("y"):
+		if not string[-2] in "aeiou":
+			return string.trim_suffix("y") + "ies"
+	elif string.ends_with("f"):
+		if string[-2] in "alr":
+			# E.g. loaf, leaf, elf, wolf, yourself, dwarf, but not chef, staff, roof
+			return string.trim_suffix("f") + "ves"
+	elif string.ends_with("ife"):
+		# E.g. wife, knife, life but not giraffe, safe
+		return string.trim_suffix("fe") + "ves"
+	elif string.ends_with("sis"):
+		# E.g. oasis
+		return string.trim_suffix("sis") + "ses"
+	return string + "s"
 
 func possessivise(string : String) -> String:
 	"?!?"
@@ -59,16 +110,49 @@ func possessivise(string : String) -> String:
 		return string + "'"
 	else:
 		return string + "'s"
+	# they/them -> their
+	# he/she -> his/her
+	# I -> my
+	# who -> whose
 
-func first_personise(string : String) -> String:
-	"""Convert a verb's inflection from third to first person. Must be in third-person,
-	but can be in any tense. If not present tense (doesn't end in "s") does nothing."""
+# intrans_possessive "You take yours"
+    # I > mine
+    # you -> yours
+    # he/she -> his/hers
+    # it -> its
+    # they -> theirs
+    # who -> whose
+
+#subjective_case():
+    # I -> me
+    # he/she -> him/her
+    # they -> them
+    # who -> whom
+    # you/it -> you/it
+
+
+#'self():
+    # I -> myself
+    # he/she -> him/herself
+    # they -> themself  [thyself]
+    # it -> itself
+    # you -> yourself
+
+#where are they?"
+#where do we find them?"
+
+
+func to_first_person(string : String) -> String:
+	"""Convert a verb's inflection from third to singular first person. Input must be third-person,
+	but can be in any tense or case. If not present tense (doesn't end in "s"), does nothing."""
 	if string == "is":
-		return "are"
+		return "am"
 	elif string == "isn't":
-		return "aren't"
+		return "am not"
 	elif string == "has":
 		return "have"
+	elif string == "was":
+		return "was"
 	elif string.ends_with("ies"):
 		# E.g. flies, readies
 		if string in ["belies", "birdies", "dies", "lies", "ties", "underlies", "unties", "vies"]:
@@ -77,10 +161,9 @@ func first_personise(string : String) -> String:
 			return string.trim_suffix("ies") + "y"
 	elif string.right(3) in ["oes", "xes"] or string.right(4) in ["ches", "shes", "sses", "tzes", "zzes"]:
 		# E.g. goes, mixes, launches, bashes, misses, waltzes, buzzes
+		# (But gasses is a noun, gases is the usual verb)
 		if string in ["axes", "aches", "avalanches", "caches", "canoes", "hoes", "shoes", "toes"]:
 			return string.trim_suffix("s")
-		elif string in ["gasses", "degasses", "outgasses"]:
-			return string.trim_suffix("ses")
 		elif string in ["quizzes", "whizzes"]:
 			return string.trim_suffix("zes")
 		else:
@@ -92,6 +175,19 @@ func first_personise(string : String) -> String:
 		else:
 			return string.trim_suffix("s")
 	return string
+
+func to_second_person(string : String) -> String:
+	"""Convert a verb's inflection from third to singular/plural second person or to
+	plural first person; see to_first_person."""
+	if string == "is":
+		return "are"
+	elif string == "isn't":
+		return "aren't"
+	elif string == "has":
+		return "have"
+	elif string == "was":
+		return "were"
+	return to_first_person(string)
 
 func a_or_an(phrase):
 	if phrase.left(1).to_lower() in "aeiou":
@@ -105,6 +201,7 @@ class GrammarState:
 	var put_the = false
 	var pluralise = false
 	var firstperson = false
+	var secondperson = false
 	var put_a = false
 
 class HIDE_NUM:
@@ -112,6 +209,9 @@ class HIDE_NUM:
 	var value
 	func _init(_value):
 		value = _value
+
+# Place before a noun (Noun or string) to pluralise it
+var PLURAL = HIDE_NUM.new(2)
 
 func strend(string : String, length=1) -> String:
 	if len(string) <= length:
@@ -171,10 +271,13 @@ class NameTracker:
 
 
 func form(parts, add_period = false):
-	"""Form a message from a list of free form strings (if prepended with ^, the first
-	word is taken as a verb in third person), numbers or HIDE_NUM(number) wrappers
-	(causes pluralisation of following word), keywords (strings), and Noun objects. Any word
-	after a number is assumed to be a noun and subject to pluralisation.
+	"""Form a sentence or sentence fragment by concatenating a list of:
+	-strings (text)
+	 If prepended with ^, the first word, and every other word preceded with ^ is taken as a verb in third person)
+	-Nouns
+	-keywords (which are strings)
+	-PLURAL or integers or HIDE_NUM(number) objects
+	 Causes (possible) pluralisation of the following word (which is assumed to be a noun) or Noun object.
 
 	keywords are: "'s", "a", "the" (hint to produce 'the' instead of 'a' for following noun)
 
@@ -250,7 +353,7 @@ func form(parts, add_period = false):
 							cur.put_a = false
 							cur.put_the = true
 					if cur.put_a:
-						if part.always_plural:
+						if part.plural:
 							# lots/some can be applied to both countable and uncountable nouns
 							if cur.pluralise:
 								phrase = "lots of " + phrase
@@ -263,8 +366,10 @@ func form(parts, add_period = false):
 				cur.put_the = false
 				cur.put_a = false
 
-			if phrase == "you":
+			if phrase == "I" or phrase == "we":
 				next.firstperson = true
+			if phrase == "you":
+				next.secondperson = true
 			if nexttok is String and nexttok.begins_with("'s"):  #cur.possess:
 				nexttok = nexttok.substr(3)  # trim "'s "
 				parts[i + 1] = nexttok   # will be skipped if now empty
@@ -287,15 +392,22 @@ func form(parts, add_period = false):
 				var word = words[idx]
 				if word.begins_with("^"):
 					word = word.substr(1)
-					if cur.firstperson:
+					if cur.firstperson or cur.secondperson or cur.pluralise:
 						var stripped = word.rstrip("!?.:;,\"'()/\\")
 						var suffix = word.substr(stripped.length())
-						word = first_personise(stripped) + suffix
+						if cur.firstperson or cur.pluralise:
+							word = to_second_person(stripped) + suffix
+						else:
+							word = to_first_person(stripped) + suffix
 					words[idx] = word
 			phrase = words.join(" ")
 
 		elif part == "'s":
 			push_error("Found floating \"'s\" in args: " + str(parts))
+
+		#elif part == "'ll" or part == "'d":
+			# In all cases (e.g. you -> you'll, they -> they'll, Bob -> Bob'll) just concat,
+			# handled below. 's as contract of 'is' isn't supported
 
 		elif part == "a":
 			next = cur
@@ -330,7 +442,8 @@ func form(parts, add_period = false):
 
 		# Auto add space (two spaces at end of a sentence) unless punctuation disallows it.
 		# Maybe should automatically add a comma before a quote mark, but can be done manually.
-		if (len(ret) and (isalnum(ret[-1]) or ret[-1] in ",;.'!?")) and phrase and not phrase[0] in ",;.!?":
+		#
+		if (len(ret) and (isalnum(ret[-1]) or ret[-1] in ",;.'!?")) and phrase and not phrase[0] in ",;.!?'":
 			if ret[-1] in ".!?":
 				ret += "  "
 			else:
@@ -362,11 +475,13 @@ func end_sentence(string):
 
 
 func test():
+	var I = Noun.new()
+	I.pronoun = "I"
+	I.unique = true
+
 	var player = Noun.new()
-	player.name = "you"
 	player.pronoun = "you"
 	player.unique = true
-	#player.firstperson = true
 
 	var James = Noun.new()
 	James.name = "James"
@@ -415,6 +530,24 @@ func test():
 	ans = "You say, \"Hi.\""
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
+	# Check pluralisation
+	ret = form([2, "huntsman and", 4, "elf walk", 2, "foot", 3, "inch apart"])
+	ans = "2 huntsmen and 4 elves walk 2 feet 3 inches apart"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	# Check tokenisation for pluralisation
+	ret = form([2, "duck,", 3, "lynx"])
+	ans = "2 ducks, 3 lynxes"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form([player, "'ll", "regret it"])
+	ans = "You'll regret it"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form([James, "'d", "regret it"])
+	ans = "James'd regret it"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
 	ret = form(["the", entity, "^is shot through by", 3, "bolt of energy.", entity, "^is mortally wounded!"])
 	ans = "The three-armed ape is shot through by 3 bolts of energy.  It is mortally wounded!"
 	if ret != ans: print( "Error! Got '" + ret + "'")
@@ -443,12 +576,11 @@ func test():
 	var Bob = Noun.new()
 	Bob.name = "Bob"
 	Bob.pronoun = "he"
-	Bob.unique = false
+	Bob.unique = true
 
 	var chemist = Noun.new()
 	chemist.name = "chemist"
 	chemist.pronoun = "he"
-	chemist.unique = false
 
 	weapon.name = "Laser Lv-02"
 	weapon.shortname = "rifle"
@@ -517,9 +649,9 @@ func test():
 
 	var coins = Noun.new()
 	coins.name = "coins"
-	coins.always_plural = true
+	coins.plural = true
 
-	# Test always_plural -- since changes the pronoun to "them", can use "it" unambiguously for the machine
+	# Test plural -- since changes the pronoun to "them", can use "it" unambiguously for the machine
 	ret = form(["the", player, "^offers", "the", machine, player, "'s", coins, ".", "the", machine, "^accepts", "the", coins])
 	ans = "You offer the vending machine your coins.  It accepts them"
 	if ret != ans: print( "Error! Got '" + ret + "'")
@@ -527,5 +659,67 @@ func test():
 	ret = form(["the", player, "^offers", "the", machine, player, "'s", item, ".", "the", machine, "^accepts", "the", item])
 	ans = "You offer the vending machine your eight-sided coin.  The machine accepts the coin"
 	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	# Test plural subject
+	ret = form(["the", coins, "^falls"])
+	ans = "The coins fall"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	# Test non-unique gendered nouns
+	var ewe = Noun.new()
+	ewe.name = "ewe"
+	ewe.pronoun = "she"
+
+	ret = form(["the", ewe, "^appears and", ewe, "^baas"])
+	ans = "The ewe appears and she baas"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	# Test number + pronoun
+
+	ret = form([3, ewe, "^appears and", HIDE_NUM.new(3), ewe, "^baas"])
+	ans = "3 ewes appear and they baa"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form([3, ewe, "^appears and", 3, ewe, "^baas"])
+	ans = "3 ewes appear and 3 baa"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form(["the", 3, ewe, "^appears"])
+	ans = "The 3 ewes appear"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	ret = form(["the", PLURAL, ewe, "^appears"])
+	ans = "The ewes appear"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+	# TODO: use of a number as a pronoun
+	ret = form([3, ewe, "^appears and", 2, "^baas"])
+	ans = "Three ewes appear and two baa"
+	#if ret != ans: print( "Error! Got '" + ret + "'")
+
+	# Test unique
+	var tower = Noun.new()
+	tower.name = "the Effel Tower"
+	tower.shortname = "the tower"  # Have to add "the" because unique=true means no determiner is automatically added
+	tower.unique = true
+
+	ret = form([player, "^sees", "the", tower])
+	ans = "You see the Effel Tower"
+	if ret != ans: print( "Error! Got '" + ret + "'")
+
+
+
+	# # Posessive pronouns
+	# var She = Noun.new()
+	# She.pronoun = "she"
+
+	# ret = form(["it 's^", She, "s"])
+	# ans = "It's hers"
+
+	# ans = "It's his"
+
+	# ans = "It's yours"
+	# ans = "It's mine"
+
 
 	print( "tests done.")
