@@ -127,7 +127,7 @@ func isalnum(chr : String) -> bool:
 	return (o >= ord("a") and o <= ord("z")) or (o >= ord("A") and o <= ord("Z")) or (o >= ord("0") and o <= ord("9"))
 
 func simple_capitalize(phrase : String) -> String:
-	return phrase.left(1).capitalize() + phrase.right(1)
+	return phrase.left(1).capitalize() + phrase.substr(1)
 
 
 class NameTracker:
