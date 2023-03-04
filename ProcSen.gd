@@ -1,6 +1,6 @@
-class_name ProcSen
+#class_name ProcSen
 # In order to autoload this script it instead needs to extend Node
-#extends Node
+extends Node
 
 
 # The context has just one purpose: if a noun is in the context then
@@ -118,6 +118,10 @@ func strend(string : String, length=1) -> String:
 		return string
 	return string.right(len(string) - length)
 
+func ord(chr : String) -> int:
+	"Replacement for Godot 3 ord()"
+	return chr.unicode_at(0)
+
 func isalnum(chr : String) -> bool:
 	var o = ord(chr)
 	return (o >= ord("a") and o <= ord("z")) or (o >= ord("A") and o <= ord("Z")) or (o >= ord("0") and o <= ord("9"))
@@ -134,7 +138,7 @@ class NameTracker:
 
 	func _consider_name(noun : Noun, name : String):
 		"Internal. If 'name' is unambiguous, set it as the name to use for 'noun'."
-		if not name:
+		if name == "":
 			return null
 		if name in possible_names and possible_names[name] != noun:
 			# Multiple nouns share the same name, so don't use that name. (If the name was already
@@ -292,7 +296,7 @@ func form(parts, add_period = false):
 						var suffix = word.substr(stripped.length())
 						word = first_personise(stripped) + suffix
 					words[idx] = word
-			phrase = words.join(" ")
+			phrase = " ".join(words)
 
 		elif part == "'s":
 			push_error("Found floating \"'s\" in args: " + str(parts))
@@ -313,7 +317,7 @@ func form(parts, add_period = false):
 			var words = phrase.split(" ")
 			if cur.pluralise:
 				words[0] = pluralise(words[0])
-			phrase = words.join(" ")
+			phrase = " ".join(words)
 
 
 
