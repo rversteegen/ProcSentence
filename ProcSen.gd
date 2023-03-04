@@ -1,6 +1,6 @@
-class_name ProcSen
+#class_name ProcSen
 # In order to autoload this script it instead needs to extend Node
-#extends Node
+extends Node
 
 
 # The context has just one purpose: if a noun is in the context then
@@ -32,19 +32,19 @@ class Noun:
 	Note that if you want to form a sentence referring to multiple of the same
 	type of thing, e.g. two men, then each should have its own Noun instance.
 	"""
-	var unique = false         # Never add "a" or "the" (see above), could be called "determined".
-	var plural = false         # If the name/shortname/pronoun are already plural e.g. "pills", "we".
-                               # Rather than set .plural you can instead pass a number, e.g.
-							   # form([HIDE_NUM(2), Apple]) -> "apples"
-							   # Note that "trousers" is plural but "pair of trousers" isn't!
-	var name = ""              # Optional, if no name is given uses pronoun instead
-	var pronoun = ""           # Optional; defaults to "it", or "they" if .plural.
-							   # One of: "I", "we", "you", "he", "she",
-							   # "it", "they", "who"
-							   # Other pronouns (e.g. "me", "yourself")
-	                           # Must be subjective case and should be pluralised if .plural is true.
-	var shortname = ""         # if the pronoun can't be used, this is used instead (if unambiguous)
-	var modifier = ""          # added to name, e.g. "green". Also added to shortname to disambiguate
+	var unique = false      # Never add "a" or "the" (see above), could be called "determined".
+	var plural = false      # If the name/shortname/pronoun are already plural e.g. "pills", "we".
+							# Rather than set .plural you can instead pass a number, e.g.
+							# form([HIDE_NUM(2), Apple]) -> "apples"
+							# Note that "trousers" is plural but "pair of trousers" isn't!
+	var name = ""           # Optional, if no name is given uses pronoun instead
+	var pronoun = ""        # Optional; defaults to "it", or "they" if .plural.
+							# One of: "I", "we", "you", "he", "she",
+							# "it", "they", "who"
+							# Other pronouns (e.g. "me", "yourself")
+							# Must be subjective case and should be pluralised if .plural is true.
+	var shortname = ""      # if the pronoun can't be used, this is used instead (if unambiguous)
+	var modifier = ""       # added to name, e.g. "green". Also added to shortname to disambiguate
 
 	func _init(_name : String = "", _pronoun = ""):
 		name = _name
@@ -116,27 +116,27 @@ func possessivise(string : String) -> String:
 	# who -> whose
 
 # intrans_possessive "You take yours"
-    # I > mine
-    # you -> yours
-    # he/she -> his/hers
-    # it -> its
-    # they -> theirs
-    # who -> whose
+	# I > mine
+	# you -> yours
+	# he/she -> his/hers
+	# it -> its
+	# they -> theirs
+	# who -> whose
 
 #subjective_case():
-    # I -> me
-    # he/she -> him/her
-    # they -> them
-    # who -> whom
-    # you/it -> you/it
+	# I -> me
+	# he/she -> him/her
+	# they -> them
+	# who -> whom
+	# you/it -> you/it
 
 
 #'self():
-    # I -> myself
-    # he/she -> him/herself
-    # they -> themself  [thyself]
-    # it -> itself
-    # you -> yourself
+	# I -> myself
+	# he/she -> him/herself
+	# they -> themself  [thyself]
+	# it -> itself
+	# you -> yourself
 
 #where are they?"
 #where do we find them?"
@@ -218,6 +218,10 @@ func strend(string : String, length=1) -> String:
 		return string
 	return string.right(len(string) - length)
 
+func ord(chr : String) -> int:
+	"Replacement for Godot 3 ord()"
+	return chr.unicode_at(0)
+
 func isalnum(chr : String) -> bool:
 	var o = ord(chr)
 	return (o >= ord("a") and o <= ord("z")) or (o >= ord("A") and o <= ord("Z")) or (o >= ord("0") and o <= ord("9"))
@@ -234,7 +238,7 @@ class NameTracker:
 
 	func _consider_name(noun : Noun, name : String):
 		"Internal. If 'name' is unambiguous, set it as the name to use for 'noun'."
-		if not name:
+		if name == "":
 			return null
 		if name in possible_names and possible_names[name] != noun:
 			# Multiple nouns share the same name, so don't use that name. (If the name was already
@@ -400,7 +404,7 @@ func form(parts, add_period = false):
 						else:
 							word = to_first_person(stripped) + suffix
 					words[idx] = word
-			phrase = words.join(" ")
+			phrase = " ".join(words)
 
 		elif part == "'s":
 			push_error("Found floating \"'s\" in args: " + str(parts))
@@ -425,7 +429,7 @@ func form(parts, add_period = false):
 			var words = phrase.split(" ")
 			if cur.pluralise:
 				words[0] = pluralise(words[0])
-			phrase = words.join(" ")
+			phrase = " ".join(words)
 
 
 
