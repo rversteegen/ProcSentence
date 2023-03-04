@@ -400,9 +400,11 @@ func form(parts, add_period = false):
 						var stripped = word.rstrip("!?.:;,\"'()/\\")
 						var suffix = word.substr(stripped.length())
 						if cur.firstperson or cur.pluralise:
-							word = to_second_person(stripped) + suffix
-						else:
+							# You are, We are
 							word = to_first_person(stripped) + suffix
+						else:
+							# I am
+							word = to_second_person(stripped) + suffix
 					words[idx] = word
 			phrase = " ".join(words)
 
@@ -484,6 +486,7 @@ func test():
 	I.unique = true
 
 	var player = Noun.new()
+	player.name = "you"   # TODO: shouldn't be needed?
 	player.pronoun = "you"
 	player.unique = true
 
