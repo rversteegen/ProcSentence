@@ -329,7 +329,7 @@ func form(parts, add_period = false):
 			phrase = simple_capitalize(phrase)
 			if phrase == "":
 				next.capitalise = true
-		if phrase.rstrip(" ").ends_with("."):
+		if len(phrase) and phrase.rstrip(" ")[-1] in ".!?":
 			next.capitalise = true
 
 		# Auto add space (two spaces at end of a sentence) unless punctuation disallows it.
@@ -419,8 +419,8 @@ func test():
 	ans = "You say, \"Hi.\""
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
-	ret = form(["the", entity, "^is shot through by", 3, "bolt of energy.", entity, "^is mortally wounded!"])
-	ans = "The three-armed ape is shot through by 3 bolts of energy.  It is mortally wounded!"
+	ret = form(["the", entity, "^is shot through by", 3, "bolt of energy!", entity, "^is mortally wounded!"])
+	ans = "The three-armed ape is shot through by 3 bolts of energy!  It is mortally wounded!"
 	if ret != ans: print( "Error! Got '" + ret + "'")
 
 	ret = form(["the", player, "'s", weapon, "explodes as", player, "^fires it!"])
