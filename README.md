@@ -18,6 +18,8 @@ It has so far been ported to (these versions are not in sync with each other):
 * Python 2
   * Long out-of-date
   * Used in Geiger AD '42 (2011 7DRL)
+* C#
+  * WIP, untested
 * Preprocessed HamsterSpeak (for the [OHRRPGCE](https://rpg.hamsterrepublic.com/ohrrpgce/))
   * Long out-of-date
   * Used in [Carcere Vicis](https://www.slimesalad.com/forum/viewgame.php?p=105547)
